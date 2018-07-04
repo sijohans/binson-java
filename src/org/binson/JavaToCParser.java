@@ -24,6 +24,7 @@ public class JavaToCParser {
         byte[] b = object.toBytes();
 
         writerCode.append("#include <assert.h>\n");
+        writerCode.append("#include <string.h>\n");
         writerCode.append("#include \"binson_parser.h\"\n\n");
         writerCode.append("/*\n");
         writerCode.append(object.toPrettyJson());
