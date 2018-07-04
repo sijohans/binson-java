@@ -1,11 +1,17 @@
 package org.binson;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+
+import static java.lang.System.exit;
+
 /**
  * Created by simonj on 2018-06-28.
  */
 public class JavaToCWriter {
 
-    private static int i = 0;
     private final Binson object;
     StringBuilder writerCode;
     StringBuilder parserCode;
@@ -19,7 +25,14 @@ public class JavaToCWriter {
     private void go() {
         byte[] b = object.toBytes();
 
-        writerCode.append("static void test_"+i+++"(void)\n");
+        writerCode.append("#include <assert.h>\n");
+        writerCode.append("#include <string.h>\n");
+        writerCode.append("#include \"binson_writer.h\"\n\n");
+        writerCode.append("/*\n");
+        writerCode.append(object.toPrettyJson());
+        writerCode.append("*/\n");
+
+        writerCode.append("int main(void)\n");
         writerCode.append("{\n");
         writerCode.append("    uint8_t expected[" + b.length +"] = \"" + byteRep(b) + "\";\n");
         writerCode.append("    uint8_t created[" + b.length + "];\n");
@@ -28,6 +41,7 @@ public class JavaToCWriter {
         writerCode.append("    assert(w.error_flags == BINSON_ID_OK);\n");
         write(object);
         writerCode.append("    assert(memcmp(expected, created, sizeof(expected)) == 0);\n");
+        writerCode.append("    return 0;\n");
         writerCode.append("}\n");
         System.out.println(writerCode.toString());
 
@@ -130,7 +144,7 @@ public class JavaToCWriter {
         writerCode.append("    assert(w.error_flags == BINSON_ID_OK);\n");
     }
 
-    private void write(int value) {
+    private void write(long value) {
         writerCode.append("    binson_write_integer(&w, " + value +");\n");
         writerCode.append("    assert(w.error_flags == BINSON_ID_OK);\n");
     }
@@ -143,11 +157,38 @@ public class JavaToCWriter {
     }
 
     public static void main(String[] args) {
-        generateCCode(new Binson()
-                .put("A", "B")
-                .put("B", new BinsonArray()
-                        .add("Hello world")
-                        .add(new Binson().put("A", "B"))));
+
+
+        if (args.length == 0) {
+            Binson b = new Binson()
+                    .put("A", "B")
+                    .put("B", new BinsonArray()
+                            .add("Hello world")
+                            .add(new Binson().put("A", "B")));
+            generateCCode(b);
+            return;
+        }
+
+        String inputFile = args[0];
+        InputStream inputStream = null;
+        try {
+            inputStream = new FileInputStream(inputFile);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+            exit(-1);
+        }
+
+        try {
+            Binson b = Binson.fromBytes(inputStream);
+            generateCCode(b);
+        } catch (IOException e) {
+            e.printStackTrace();
+            exit(-1);
+        } catch (BinsonFormatException e) {
+            e.printStackTrace();
+            exit(-1);
+        }
+
     }
 
 }

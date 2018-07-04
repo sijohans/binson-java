@@ -1,11 +1,17 @@
 package org.binson;
 
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.InputStream;
+
+import static java.lang.System.exit;
+
 /**
  * Created by simonj on 2018-06-28.
  */
 public class JavaToCParser {
 
-    private static int i = 0;
     private final Binson object;
     StringBuilder writerCode;
 
@@ -17,7 +23,13 @@ public class JavaToCParser {
     private void go() {
         byte[] b = object.toBytes();
 
-        writerCode.append("static void test_"+i+++"(void)\n");
+        writerCode.append("#include <assert.h>\n");
+        writerCode.append("#include \"binson_parser.h\"\n\n");
+        writerCode.append("/*\n");
+        writerCode.append(object.toPrettyJson());
+        writerCode.append("*/\n");
+
+        writerCode.append("int main(void)\n");
         writerCode.append("{\n");
         writerCode.append("    uint8_t binson_bytes[" + b.length +"] = \"" + byteRep(b) + "\";\n");
         writerCode.append("    binson_parser p;\n");
@@ -26,8 +38,10 @@ public class JavaToCParser {
         writerCode.append("    bool boolval; (void) boolval;\n");
         writerCode.append("    bbuf *rawval; (void) rawval;\n");
         writerCode.append("    binson_parser_init(&p, binson_bytes, sizeof(binson_bytes));\n");
+        writerCode.append("    assert(binson_parser_verify(&p));\n");
         writerCode.append("    assert(p.error_flags == BINSON_ID_OK);\n");
         parse(object);
+        writerCode.append("    return 0;\n");
         writerCode.append("}\n");
         System.out.println(writerCode.toString());
 
@@ -138,7 +152,7 @@ public class JavaToCParser {
     private void parse(boolean value) {
         writerCode.append("    boolval = binson_parser_get_boolean(&p);\n");
         writerCode.append("    assert(p.error_flags == BINSON_ID_OK);\n");
-        writerCode.append("    assert(boolval == " + value +"));\n");
+        writerCode.append("    assert(boolval == " + value +");\n");
     }
 
     private void parse(String value) {
@@ -157,14 +171,14 @@ public class JavaToCParser {
     private void parse(double value) {
         writerCode.append("    dval = binson_parser_get_double(&p);\n");
         writerCode.append("    assert(p.error_flags == BINSON_ID_OK);\n");
-        writerCode.append("    assert(dval == " + value +"));\n");
+        writerCode.append("    assert(dval == " + value +");\n");
 
     }
 
-    private void parse(int value) {
+    private void parse(long value) {
         writerCode.append("    intval = binson_parser_get_integer(&p);\n");
         writerCode.append("    assert(p.error_flags == BINSON_ID_OK);\n");
-        writerCode.append("    assert(intval == " + value +"));\n");    }
+        writerCode.append("    assert(intval == " + value +");\n");    }
 
     public static void generateCCode(Binson b) {
         if (b == null) {
@@ -174,11 +188,53 @@ public class JavaToCParser {
     }
 
     public static void main(String[] args) {
-        generateCCode(new Binson()
-                .put("A", "B")
-                .put("B", new BinsonArray()
-                        .add("Hello world")
-                        .add(new Binson().put("A", "B"))));
+
+        if (args.length == 0) {
+            Binson b = new Binson()
+                    .put("A", "B")
+                    .put("B", new Binson().put("A", "B"))
+                    .put("C", new BinsonArray()
+                            .add("A")
+                            .add("A")
+                            .add(new Binson()
+                                    .put("A", "B").put("B", new BinsonArray()
+                                            .add("A")
+                                            .add("A")
+                                            .add(new Binson().put("A", "B"))
+                                            .add(new BinsonArray()
+                                                    .add(new BinsonArray()
+                                                            .add(new BinsonArray()
+                                                                    .add(new BinsonArray()
+                                                                            .add(new Binson().put("A", "B"))))))))
+                            .add("A"))
+                    .put("D", Math.PI)
+                    .put("E", false)
+                    .put("F", 127)
+                    .put("G", new byte[]{0x02, 0x02});
+            generateCCode(b);
+            return;
+        }
+
+        String inputFile = args[0];
+        InputStream inputStream = null;
+        try {
+            inputStream = new FileInputStream(inputFile);
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+            exit(-1);
+        }
+
+        try {
+            Binson b = Binson.fromBytes(inputStream);
+            generateCCode(b);
+        } catch (IOException e) {
+            e.printStackTrace();
+            exit(-1);
+        } catch (BinsonFormatException e) {
+            e.printStackTrace();
+            exit(-1);
+        }
+
     }
 
 }
