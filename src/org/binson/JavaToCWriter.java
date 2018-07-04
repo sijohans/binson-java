@@ -1,9 +1,8 @@
 package org.binson;
 
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
+import org.binson.lowlevel.Bytes;
+
+import java.io.*;
 import java.util.Arrays;
 
 import static java.lang.System.exit;
@@ -53,7 +52,7 @@ public class JavaToCWriter {
     }
 
     private String byteRep(String s) {
-        byte[] value = s.getBytes();
+        byte[] value = Bytes.stringToUtf8(s);
         StringBuilder sb = new StringBuilder(value.length*4);
         for (byte b : value) {
             sb.append(String.format("\\x%02x", b));
@@ -77,7 +76,7 @@ public class JavaToCWriter {
         Arrays.sort(keys);
 
         for (String field : keys) {
-            writerCode.append("    binson_write_name(&w, \"" + byteRep(field) + "\");\n");
+            writerCode.append("    binson_write_string_with_len(&w, \"" + byteRep(field) + "\", "+ byteRep(field).length()/4 +");\n");
             writerCode.append("    assert(w.error_flags == BINSON_ID_OK);\n");
             if (b.hasObject(field) ) {
                 write(b.getObject(field));
@@ -135,12 +134,12 @@ public class JavaToCWriter {
 
     private void write(String value) {
         /* TODO: Escape characted " with \" */
-        writerCode.append("    binson_write_string(&w, \"" + byteRep(value) + "\");\n");
+        writerCode.append("    binson_write_string_with_len(&w, \"" + byteRep(value) + "\", "+ byteRep(value).length()/4 +");\n");
         writerCode.append("    assert(w.error_flags == BINSON_ID_OK);\n");
     }
 
     private void write(byte[] value) {
-        writerCode.append("    binson_write_bytes(&w, \"" + byteRep(value) + "\", " + value.length +");\n");
+        writerCode.append("    binson_write_bytes(&w, (uint8_t *)\"" + byteRep(value) + "\", " + value.length +");\n");
         writerCode.append("    assert(w.error_flags == BINSON_ID_OK);\n");
     }
 
