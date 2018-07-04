@@ -4,6 +4,7 @@ import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 
 import static java.lang.System.exit;
 
@@ -71,7 +72,11 @@ public class JavaToCWriter {
     private void write(Binson b) {
         writerCode.append("    binson_write_object_begin(&w);\n");
         writerCode.append("    assert(w.error_flags == BINSON_ID_OK);\n");
-        for (String field : b.keySet()) {
+
+        String[] keys = b.keySet().toArray(new String[0]);
+        Arrays.sort(keys);
+
+        for (String field : keys) {
             writerCode.append("    binson_write_name(&w, \"" + byteRep(field) + "\");\n");
             writerCode.append("    assert(w.error_flags == BINSON_ID_OK);\n");
             if (b.hasObject(field) ) {
@@ -161,10 +166,10 @@ public class JavaToCWriter {
 
         if (args.length == 0) {
             Binson b = new Binson()
-                    .put("A", "B")
-                    .put("B", new BinsonArray()
-                            .add("Hello world")
-                            .add(new Binson().put("A", "B")));
+                    .put("c", "A")
+                    .put("i", 20)
+                    .put("o", "s")
+                    .put("z", new Binson().put("A", "B").put("ch", new byte[]{0x01,0x02}));
             generateCCode(b);
             return;
         }
