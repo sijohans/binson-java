@@ -1,9 +1,9 @@
 package org.binson;
 
-import java.io.FileInputStream;
-import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.io.InputStream;
+import org.binson.lowlevel.Bytes;
+
+import java.io.*;
+import java.util.Arrays;
 
 import static java.lang.System.exit;
 
@@ -52,7 +52,7 @@ public class JavaToCWriter {
     }
 
     private String byteRep(String s) {
-        byte[] value = s.getBytes();
+        byte[] value = Bytes.stringToUtf8(s);
         StringBuilder sb = new StringBuilder(value.length*4);
         for (byte b : value) {
             sb.append(String.format("\\x%02x", b));
@@ -71,8 +71,12 @@ public class JavaToCWriter {
     private void write(Binson b) {
         writerCode.append("    binson_write_object_begin(&w);\n");
         writerCode.append("    assert(w.error_flags == BINSON_ID_OK);\n");
-        for (String field : b.keySet()) {
-            writerCode.append("    binson_write_name(&w, \"" + byteRep(field) + "\");\n");
+
+        String[] keys = b.keySet().toArray(new String[0]);
+        Arrays.sort(keys);
+
+        for (String field : keys) {
+            writerCode.append("    binson_write_string_with_len(&w, \"" + byteRep(field) + "\", "+ byteRep(field).length()/4 +");\n");
             writerCode.append("    assert(w.error_flags == BINSON_ID_OK);\n");
             if (b.hasObject(field) ) {
                 write(b.getObject(field));
@@ -130,12 +134,12 @@ public class JavaToCWriter {
 
     private void write(String value) {
         /* TODO: Escape characted " with \" */
-        writerCode.append("    binson_write_string(&w, \"" + byteRep(value) + "\");\n");
+        writerCode.append("    binson_write_string_with_len(&w, \"" + byteRep(value) + "\", "+ byteRep(value).length()/4 +");\n");
         writerCode.append("    assert(w.error_flags == BINSON_ID_OK);\n");
     }
 
     private void write(byte[] value) {
-        writerCode.append("    binson_write_bytes(&w, \"" + byteRep(value) + "\", " + value.length +");\n");
+        writerCode.append("    binson_write_bytes(&w, (uint8_t *)\"" + byteRep(value) + "\", " + value.length +");\n");
         writerCode.append("    assert(w.error_flags == BINSON_ID_OK);\n");
     }
 
@@ -161,10 +165,10 @@ public class JavaToCWriter {
 
         if (args.length == 0) {
             Binson b = new Binson()
-                    .put("A", "B")
-                    .put("B", new BinsonArray()
-                            .add("Hello world")
-                            .add(new Binson().put("A", "B")));
+                    .put("c", "A")
+                    .put("i", 20)
+                    .put("o", "s")
+                    .put("z", new Binson().put("A", "B").put("ch", new byte[]{0x01,0x02}));
             generateCCode(b);
             return;
         }
