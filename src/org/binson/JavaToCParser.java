@@ -1,9 +1,12 @@
 package org.binson;
 
+import org.binson.lowlevel.Bytes;
+
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 
 import static java.lang.System.exit;
 
@@ -38,7 +41,7 @@ public class JavaToCParser {
         writerCode.append("    int64_t intval; (void) intval;\n");
         writerCode.append("    bool boolval; (void) boolval;\n");
         writerCode.append("    bbuf *rawval; (void) rawval;\n");
-        writerCode.append("    binson_parser_init(&p, binson_bytes, sizeof(binson_bytes));\n");
+        writerCode.append("    assert(binson_parser_init(&p, binson_bytes, sizeof(binson_bytes)));\n");
         writerCode.append("    assert(binson_parser_verify(&p));\n");
         writerCode.append("    assert(p.error_flags == BINSON_ID_OK);\n");
         parse(object);
@@ -53,7 +56,7 @@ public class JavaToCParser {
     }
 
     private String byteRep(String s) {
-        byte[] value = s.getBytes();
+        byte[] value = Bytes.stringToUtf8(s);
         StringBuilder sb = new StringBuilder(value.length*4);
         for (byte b : value) {
             sb.append(String.format("\\x%02x", b));
@@ -70,35 +73,39 @@ public class JavaToCParser {
     }
 
     private void parse(Binson b) {
-        writerCode.append("    binson_parser_go_into_object(&p);\n");
+        writerCode.append("    assert(binson_parser_go_into_object(&p));\n");
         writerCode.append("    assert(p.error_flags == BINSON_ID_OK);\n");
-        for (String field : b.keySet()) {
+
+        String fields[] = b.keySet().toArray(new String[0]);
+        Arrays.sort(fields);
+
+        for (String field : fields) {
             if (b.hasObject(field) ) {
-                writerCode.append("    binson_parser_field_ensure(&p, \"" + byteRep(field) + "\", BINSON_TYPE_OBJECT);\n");
+                writerCode.append("    assert(binson_parser_field_ensure_with_length(&p, \"" + byteRep(field) + "\", " + byteRep(field).length()/4 + ", BINSON_TYPE_OBJECT));\n");
                 writerCode.append("    assert(p.error_flags == BINSON_ID_OK);\n");
                 parse(b.getObject(field));
             } else if (b.hasArray(field)) {
-                writerCode.append("    binson_parser_field_ensure(&p, \"" + byteRep(field) + "\", BINSON_TYPE_ARRAY);\n");
+                writerCode.append("    assert(binson_parser_field_ensure_with_length(&p, \"" + byteRep(field) + "\", " + byteRep(field).length()/4 + ", BINSON_TYPE_ARRAY));\n");
                 writerCode.append("    assert(p.error_flags == BINSON_ID_OK);\n");
                 parse(b.getArray(field));
             } else if (b.hasBoolean(field)) {
-                writerCode.append("    binson_parser_field_ensure(&p, \"" + byteRep(field) + "\", BINSON_TYPE_BOOLEAN);\n");
+                writerCode.append("    assert(binson_parser_field_ensure_with_length(&p, \"" + byteRep(field) + "\", " + byteRep(field).length()/4 + ", BINSON_TYPE_BOOLEAN));\n");
                 writerCode.append("    assert(p.error_flags == BINSON_ID_OK);\n");
                 parse(b.getBoolean(field));
             } else if (b.hasBytes(field)) {
-                writerCode.append("    binson_parser_field_ensure(&p, \"" + byteRep(field) + "\", BINSON_TYPE_BYTES);\n");
+                writerCode.append("    assert(binson_parser_field_ensure_with_length(&p, \"" + byteRep(field) + "\", " + byteRep(field).length()/4 + ", BINSON_TYPE_BYTES));\n");
                 writerCode.append("    assert(p.error_flags == BINSON_ID_OK);\n");
                 parse(b.getBytes(field));
             } else if (b.hasDouble(field)) {
-                writerCode.append("    binson_parser_field_ensure(&p, \"" + byteRep(field) + "\", BINSON_TYPE_DOUBLE);\n");
+                writerCode.append("    assert(binson_parser_field_ensure_with_length(&p, \"" + byteRep(field) + "\", " + byteRep(field).length()/4 + ", BINSON_TYPE_DOUBLE));\n");
                 writerCode.append("    assert(p.error_flags == BINSON_ID_OK);\n");
                 parse(b.getDouble(field));
             } else if (b.hasInteger(field)) {
-                writerCode.append("    binson_parser_field_ensure(&p, \"" + byteRep(field) + "\", BINSON_TYPE_INTEGER);\n");
+                writerCode.append("    assert(binson_parser_field_ensure_with_length(&p, \"" + byteRep(field) + "\", " + byteRep(field).length()/4 + ", BINSON_TYPE_INTEGER));\n");
                 writerCode.append("    assert(p.error_flags == BINSON_ID_OK);\n");
                 parse(b.getInteger(field));
             } else if (b.hasString(field)) {
-                writerCode.append("    binson_parser_field_ensure(&p, \"" + byteRep(field) + "\", BINSON_TYPE_STRING);\n");
+                writerCode.append("    assert(binson_parser_field_ensure_with_length(&p, \"" + byteRep(field) + "\", " + byteRep(field).length()/4 + ", BINSON_TYPE_STRING));\n");
                 writerCode.append("    assert(p.error_flags == BINSON_ID_OK);\n");
                 parse(b.getString(field));
             } else {
@@ -106,47 +113,47 @@ public class JavaToCParser {
             }
         }
 
-        writerCode.append("    binson_parser_leave_object(&p);\n");
+        writerCode.append("    assert(binson_parser_leave_object(&p));\n");
         writerCode.append("    assert(p.error_flags == BINSON_ID_OK);\n");
     }
 
     private void parse(BinsonArray array) {
-        writerCode.append("    binson_parser_go_into_array(&p);\n");
+        writerCode.append("    assert(binson_parser_go_into_array(&p));\n");
         writerCode.append("    assert(p.error_flags == BINSON_ID_OK);\n");
         for (int i = 0; i < array.size(); i++) {
             if (array.isObject(i) ) {
-                writerCode.append("    binson_parser_next_ensure(&p, BINSON_TYPE_OBJECT);\n");
+                writerCode.append("    assert(binson_parser_next_ensure(&p, BINSON_TYPE_OBJECT));\n");
                 writerCode.append("    assert(p.error_flags == BINSON_ID_OK);\n");
                 parse(array.getObject(i));
             } else if (array.isArray(i)) {
-                writerCode.append("    binson_parser_next_ensure(&p, BINSON_TYPE_ARRAY);\n");
+                writerCode.append("    assert(binson_parser_next_ensure(&p, BINSON_TYPE_ARRAY));\n");
                 writerCode.append("    assert(p.error_flags == BINSON_ID_OK);\n");
                 parse(array.getArray(i));
             } else if (array.isBoolean(i)) {
-                writerCode.append("    binson_parser_next_ensure(&p, BINSON_TYPE_BOOLEAN);\n");
+                writerCode.append("    assert(binson_parser_next_ensure(&p, BINSON_TYPE_BOOLEAN));\n");
                 writerCode.append("    assert(p.error_flags == BINSON_ID_OK);\n");
                 parse(array.getBoolean(i));
             } else if (array.isBytes(i)) {
-                writerCode.append("    binson_parser_next_ensure(&p, BINSON_TYPE_BYTES);\n");
+                writerCode.append("    assert(binson_parser_next_ensure(&p, BINSON_TYPE_BYTES));\n");
                 writerCode.append("    assert(p.error_flags == BINSON_ID_OK);\n");
                 parse(array.getBytes(i));
             } else if (array.isDouble(i)) {
-                writerCode.append("    binson_parser_next_ensure(&p, BINSON_TYPE_DOUBLE);\n");
+                writerCode.append("    assert(binson_parser_next_ensure(&p, BINSON_TYPE_DOUBLE));\n");
                 writerCode.append("    assert(p.error_flags == BINSON_ID_OK);\n");
                 parse(array.getDouble(i));
             } else if (array.isInteger(i)) {
-                writerCode.append("    binson_parser_next_ensure(&p, BINSON_TYPE_INTEGER);\n");
+                writerCode.append("    assert(binson_parser_next_ensure(&p, BINSON_TYPE_INTEGER));\n");
                 writerCode.append("    assert(p.error_flags == BINSON_ID_OK);\n");
                 parse(array.getInteger(i));
             } else if (array.isString(i)) {
-                writerCode.append("    binson_parser_next_ensure(&p, BINSON_TYPE_STRING);\n");
+                writerCode.append("    assert(binson_parser_next_ensure(&p, BINSON_TYPE_STRING));\n");
                 writerCode.append("    assert(p.error_flags == BINSON_ID_OK);\n");
                 parse(array.getString(i));
             } else {
                 writerCode.append("ERRORERRORERROR");
             }
         }
-        writerCode.append("    binson_parser_leave_array(&p);\n");
+        writerCode.append("    assert(binson_parser_leave_array(&p));\n");
         writerCode.append("    assert(p.error_flags == BINSON_ID_OK);\n");
     }
 
